@@ -1,101 +1,114 @@
-import Image from "next/image";
+"use client";
+import {
+  FREIGHTER_ID,
+  FreighterModule,
+  StellarWalletsKit,
+  WalletNetwork,
+  xBullModule,
+} from "@creit.tech/stellar-wallets-kit";
+import { useEffect, useState } from "react";
+import { Address, TransactionBuilder } from "@stellar/stellar-sdk";
+import {
+  Client,
+  networks,
+  Networks,
+  rpc,
+  Scholarship,
+} from "../../bindings/src/index";
+
+const kit: StellarWalletsKit = new StellarWalletsKit({
+  network: WalletNetwork.TESTNET,
+  selectedWalletId: FREIGHTER_ID,
+  modules: [new FreighterModule(), new xBullModule()],
+});
+
+const SOROBAN_RPC_URL = "https://soroban-testnet.stellar.org";
+const scholarshipContract = new Client({
+  contractId: networks.testnet.contractId,
+  networkPassphrase: networks.testnet.networkPassphrase,
+  rpcUrl: SOROBAN_RPC_URL,
+});
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [address, setAddress] = useState("");
+  const [trigger, setTrigger] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+  useEffect(() => {
+    const getAddress = async () => {
+      const newAddress = await kit.getAddress();
+      setAddress(newAddress.address);
+      console.log(newAddress);
+    };
+
+    const postScholarship = async () => {
+      const scholarshipData: Scholarship = {
+        admin: new Address(address),
+        name: "Scholarship",
+        details: "Scholarship details",
+        available_grants: BigInt(10),
+        student_grant_amount: BigInt(10000),
+        end_date: BigInt(10000),
+        id: BigInt(0),
+        token: new Address(
+          "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+        ),
+      };
+
+      const transaction = await scholarshipContract.post_scholarship({
+        scholarship: scholarshipData,
+      });
+
+      console.log(transaction);
+      // const xdr = transaction.toXDR();
+      // const signedResult = await kit.signTransaction(xdr, {
+      //   address: address,
+      //   networkPassphrase: Networks.TESTNET,
+      // });
+      // const signedTx = TransactionBuilder.fromXDR(
+      //   signedResult.signedTxXdr,
+      //   Networks.TESTNET
+      // );
+      // const server = new rpc.Server(SOROBAN_RPC_URL);
+      // const simResult: any = await server.simulateTransaction(signedTx);
+      // if (simResult.error) {
+      //   console.log(simResult);
+      //   return;
+      // }
+    };
+
+    if (trigger) {
+      getAddress();
+      postScholarship();
+    }
+  }, [trigger]);
+
+  return (
+    <button
+      className="btn btn-primary"
+      onClick={() => setTrigger((prev) => !prev)}
+    >
+      Submit
+    </button>
   );
 }
+
+/*
+10000000000 - 1000 xlm
+1000000000  - 100 xlm
+100000000   - 10 xlm
+10000000    - 1 xlm
+CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC // *xlm token address testnet
+
+cargo install --git https://github.com/stellar/stellar-cli soroban-cli //for updating or downloadingle cli
+
+?  latest contract id = CB7FB7TQ3H4XFVNXREBZYMQ7Q7DF3WZTYC7C7IQ4WDHJSQWBV7UJOBHX
+
+CB7FB7TQ3H4XFVNXREBZYMQ7Q7DF3WZTYC7C7IQ4WDHJSQWBV7UJOBHX -- Contract Id from okashi
+
+stellar contract bindings typescript \
+  --network testnet \
+  --contract-id CB7FB7TQ3H4XFVNXREBZYMQ7Q7DF3WZTYC7C7IQ4WDHJSQWBV7UJOBHX \
+  --output-dir bindings --overwrite
+
+
+*/
