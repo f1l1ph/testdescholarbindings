@@ -7,73 +7,111 @@ import {
   xBullModule,
 } from "@creit.tech/stellar-wallets-kit";
 import { useEffect, useState } from "react";
-import { Address, TransactionBuilder } from "@stellar/stellar-sdk";
 import {
   Client,
   networks,
   Networks,
   rpc,
   Scholarship,
-} from "../../bindings/src/index";
-
-const kit: StellarWalletsKit = new StellarWalletsKit({
-  network: WalletNetwork.TESTNET,
-  selectedWalletId: FREIGHTER_ID,
-  modules: [new FreighterModule(), new xBullModule()],
-});
+  TransactionBuilder,
+} from "../../bindings/dist/index";
+import { signAuthEntry, signTransaction } from "@stellar/freighter-api";
 
 const SOROBAN_RPC_URL = "https://soroban-testnet.stellar.org";
-const scholarshipContract = new Client({
-  contractId: networks.testnet.contractId,
-  networkPassphrase: networks.testnet.networkPassphrase,
-  rpcUrl: SOROBAN_RPC_URL,
-});
 
 export default function Home() {
   const [address, setAddress] = useState("");
   const [trigger, setTrigger] = useState(false);
+  const [kit, setKit] = useState<StellarWalletsKit | null>(null);
 
   useEffect(() => {
     const getAddress = async () => {
-      const newAddress = await kit.getAddress();
-      setAddress(newAddress.address);
-      console.log(newAddress);
+      const kit: StellarWalletsKit = new StellarWalletsKit({
+        network: WalletNetwork.TESTNET,
+        selectedWalletId: FREIGHTER_ID,
+        modules: [new FreighterModule(), new xBullModule()],
+      });
+      console.log(kit);
+      setAddress((await kit.getAddress()).address);
+      setKit(kit);
     };
 
     const postScholarship = async () => {
-      const scholarshipData: Scholarship = {
-        admin: new Address(address),
-        name: "Scholarship",
-        details: "Scholarship details",
-        available_grants: BigInt(10),
-        student_grant_amount: BigInt(10000),
-        end_date: BigInt(10000),
-        id: BigInt(0),
-        token: new Address(
-          "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
-        ),
-      };
+      try {
+        if (!kit) {
+          return;
+        }
+        const scholarshipContract = new Client({
+          contractId: networks.testnet.contractId,
+          networkPassphrase: networks.testnet.networkPassphrase,
+          rpcUrl: SOROBAN_RPC_URL,
+          signTransaction: async (tx: string) => {
+            return await kit.signTransaction(tx, {
+              networkPassphrase: Networks.TESTNET,
+            });
+          },
+        });
 
-      const transaction = await scholarshipContract.post_scholarship({
-        scholarship: scholarshipData,
-      });
+        const scholarshipData: Scholarship = {
+          admin: address,
+          name: "Scholarship",
+          details: "Scholarship details",
+          available_grants: BigInt(10),
+          student_grant_amount: BigInt(10000),
+          end_date: BigInt(10000),
+          id: BigInt(0),
+          token: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+        };
 
-      console.log(transaction);
-      // const xdr = transaction.toXDR();
-      // const signedResult = await kit.signTransaction(xdr, {
-      //   address: address,
-      //   networkPassphrase: Networks.TESTNET,
-      // });
-      // const signedTx = TransactionBuilder.fromXDR(
-      //   signedResult.signedTxXdr,
-      //   Networks.TESTNET
-      // );
-      // const server = new rpc.Server(SOROBAN_RPC_URL);
-      // const simResult: any = await server.simulateTransaction(signedTx);
-      // if (simResult.error) {
-      //   console.log(simResult);
-      //   return;
-      // }
+        const transaction = await scholarshipContract.post_scholarship({
+          scholarship: scholarshipData,
+        });
+
+        console.log(transaction);
+
+        const server = new rpc.Server(SOROBAN_RPC_URL, { allowHttp: true });
+
+        const signedXdr = await kit.signTransaction(transaction.toXDR(), {
+          networkPassphrase: Networks.TESTNET,
+        });
+
+        const signedTx = TransactionBuilder.fromXDR(
+          signedXdr.signedTxXdr,
+          Networks.TESTNET
+        );
+
+        const result: any = server.sendTransaction(signedTx);
+        console.log(result);
+
+        const status = await server.getTransaction(result.hash);
+
+        // const { result } = await transaction.signAndSend();
+
+        // await kit.signTransaction(transaction);
+        // console.log(result);
+
+        // const xdr = transaction.toXDR();
+        // const signedResult = await kit.signTransaction(xdr, {
+        //   address: address,
+        //   networkPassphrase: Networks.TESTNET,
+        // });
+
+        // const signedTx = TransactionBuilder.fromXDR(
+        //   signedResult.signedTxXdr,
+        //   Networks.TESTNET
+        // );
+
+        // console.log(signedTx);
+
+        // const server = new rpc.Server(SOROBAN_RPC_URL);
+        // const simResult: any = await server.simulateTransaction(signedTx);
+        // if (simResult.error) {
+        //   console.log(simResult);
+        //   return;
+        // }
+      } catch (error) {
+        console.error(error);
+      }
     };
 
     if (trigger) {
